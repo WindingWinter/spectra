@@ -150,6 +150,9 @@ namespace Spectra {
 /// }
 /// \endcode
 ///
+
+typedef bool(__stdcall* progressCallback)(int currProgress);
+
 template < typename Scalar = double,
            int SelectionRule = LARGEST_MAGN,
            typename OpType = DenseSymMatProd<double> >
@@ -505,6 +508,8 @@ public:
     ///
     virtual ~SymEigsSolver() {}
 
+	progressCallback progressDelegate;
+
     ///
     /// Initializes the solver by providing an initial residual vector.
     ///
@@ -587,6 +592,9 @@ public:
     ///
     int compute(int maxit = 1000, Scalar tol = 1e-10, int sort_rule = LARGEST_ALGE)
     {
+
+
+
         // The m-step Arnoldi factorization
         factorize_from(1, m_ncv, m_fac_f);
         retrieve_ritzpair();
@@ -594,9 +602,16 @@ public:
         int i, nconv = 0, nev_adj;
         for(i = 0; i < maxit; i++)
         {
+
             nconv = num_converged(tol);
             if(nconv >= m_nev)
                 break;
+			if (progressDelegate != nullptr)
+			{
+				auto res = progressDelegate(i);
+				if (!res)
+					break;
+			}
 
             nev_adj = nev_adjusted(nconv);
             restart(nev_adj);
