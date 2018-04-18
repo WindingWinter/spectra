@@ -151,7 +151,7 @@ namespace Spectra {
 /// \endcode
 ///
 
-typedef bool(__stdcall* progressCallback)(int currProgress);
+typedef int(__stdcall* progressCallback)(char *msg, int currProgress);
 
 template < typename Scalar = double,
            int SelectionRule = LARGEST_MAGN,
@@ -509,6 +509,7 @@ public:
     virtual ~SymEigsSolver() {}
 
 	progressCallback progressDelegate;
+	int progCallBackEnum = 0;
 
     ///
     /// Initializes the solver by providing an initial residual vector.
@@ -600,6 +601,8 @@ public:
         retrieve_ritzpair();
         // Restarting
         int i, nconv = 0, nev_adj;
+		//0==continue, 1==skipe iteration, 2== cancel
+
         for(i = 0; i < maxit; i++)
         {
 
@@ -608,21 +611,33 @@ public:
                 break;
 			if (progressDelegate != nullptr)
 			{
-				auto res = progressDelegate(i);
-				if (!res)
-					break;
+				std::string msg = "hello world";
+				 char *ctr = (char*)msg.c_str();
+				 progCallBackEnum = progressDelegate(ctr, i);
+				
 			}
+			if (progCallBackEnum == 1||progCallBackEnum ==2)
+				break;
+			
+			nev_adj = nev_adjusted(nconv);
+			restart(nev_adj);
 
-            nev_adj = nev_adjusted(nconv);
-            restart(nev_adj);
         }
-        // Sorting results
-        sort_ritzpair(sort_rule);
 
-        m_niter += i + 1;
-        m_info = (nconv >= m_nev) ? SUCCESSFUL : NOT_CONVERGING;
+		if (progCallBackEnum != 2)	// Sorting results
+		{
+			sort_ritzpair(sort_rule);
 
-        return std::min(m_nev, nconv);
+			m_niter += i + 1;
+			m_info = (nconv >= m_nev) ? SUCCESSFUL : NOT_CONVERGING;
+
+			return std::min(m_nev, nconv);
+		}
+		else
+		{
+			m_info = NOT_CONVERGING;
+			return 0;
+		}
     }
 
     ///
